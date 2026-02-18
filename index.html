@@ -1,0 +1,753 @@
+ 
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>JS Шпаргалка — TV Каналы</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    /* TV style inspired by retro TV CodePen demos [web:18] */
+
+    :root {
+      --bg: #050509;
+      --tv-body: #1a1a1f;
+      --tv-border: #3b3b44;
+      --tv-screen-bg: #050608;
+      --tv-screen-glow: #32ffb3;
+      --accent: #32ffb3;
+      --accent-soft: rgba(50, 255, 179, 0.4);
+      --text-main: #f5f5f5;
+      --text-muted: #999;
+      --btn-bg: #101017;
+      --btn-active: #32ffb3;
+      --btn-active-text: #050509;
+      --noise-opacity: 0.07;
+      --scanline-opacity: 0.12;
+      --shadow: 0 40px 80px rgba(0, 0, 0, 0.8);
+      --radius-large: 30px;
+      --radius-medium: 16px;
+      --radius-small: 8px;
+      --transition-fast: 0.2s ease-out;
+      --transition-med: 0.35s ease-out;
+      --font-mono: "Fira Code", "JetBrains Mono", Menlo, Monaco, Consolas, monospace;
+      --font-main: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: radial-gradient(circle at top, #111322 0, var(--bg) 50%, #000 100%);
+      color: var(--text-main);
+      font-family: var(--font-main);
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .page {
+      max-width: 1100px;
+      width: 100%;
+    }
+
+    .page-title {
+      text-align: center;
+      margin-bottom: 18px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .page-title strong {
+      color: var(--accent);
+    }
+
+    .tv-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .tv {
+      position: relative;
+      width: 100%;
+      max-width: 900px;
+      background: radial-gradient(circle at top left, #262634, var(--tv-body));
+      border-radius: var(--radius-large);
+      padding: 22px;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 210px;
+      gap: 18px;
+    }
+
+    @media (max-width: 840px) {
+      .tv {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    /* SCREEN */
+
+    .tv-screen-shell {
+      position: relative;
+      overflow: hidden;
+      border-radius: 26px;
+      padding: 9px;
+      background: radial-gradient(circle at top, #454a63, #1c1f2b);
+      box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,0.04),
+        inset 0 0 45px rgba(0,0,0,0.7);
+    }
+
+    .tv-screen-inner {
+      position: relative;
+      border-radius: 20px;
+      background: radial-gradient(circle at center, #12131d 0, #020308 55%, #000 100%);
+      overflow: hidden;
+      box-shadow:
+        0 0 40px rgba(0,0,0,0.75),
+        0 0 25px rgba(0,0,0,0.9);
+    }
+
+    .tv-screen-inner::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(255,255,255,var(--scanline-opacity)),
+        rgba(255,255,255,var(--scanline-opacity)) 1px,
+        transparent 1px,
+        transparent 3px
+      );
+      mix-blend-mode: soft-light;
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    .tv-screen-inner::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(120deg, rgba(255,255,255,0.15), transparent 60%),
+        repeating-linear-gradient(
+          0deg,
+          rgba(255,255,255,var(--noise-opacity)),
+          rgba(255,255,255,var(--noise-opacity)) 1px,
+          transparent 1px,
+          transparent 2px
+        );
+      opacity: 0.6;
+      mix-blend-mode: soft-light;
+      pointer-events: none;
+    }
+
+    .tv-screen-content {
+      position: relative;
+      padding: 20px 22px 20px;
+      min-height: 320px;
+      font-family: var(--font-mono);
+      color: #e8fff7;
+      text-shadow: 0 0 3px rgba(0,0,0,0.9);
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--accent-soft) transparent;
+    }
+
+    .tv-screen-content::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .tv-screen-content::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .tv-screen-content::-webkit-scrollbar-thumb {
+      background: var(--accent-soft);
+      border-radius: 3px;
+    }
+
+    .tv-screen-glow {
+      position: absolute;
+      inset: -40px;
+      background: radial-gradient(circle at center, var(--accent-soft), transparent 55%);
+      opacity: 0.18;
+      pointer-events: none;
+      filter: blur(10px);
+    }
+
+    /* CHANNEL CONTENT */
+
+    .channel {
+      opacity: 0;
+      transform: translateY(6px) scale(1.01);
+      filter: blur(1px);
+      pointer-events: none;
+      transition:
+        opacity var(--transition-med),
+        transform var(--transition-med),
+        filter var(--transition-med);
+      position: absolute;
+      inset: 0;
+      padding-right: 12px;
+    }
+
+    .channel.active {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      filter: blur(0);
+      pointer-events: auto;
+      position: relative;
+    }
+
+    .channel-title {
+      font-size: 16px;
+      margin: 0 0 6px;
+      color: var(--accent);
+    }
+
+    .channel-sub {
+      margin: 0 0 14px;
+      font-size: 13px;
+      color: var(--text-muted);
+      font-family: var(--font-main);
+    }
+
+    pre {
+      margin: 0 0 10px;
+      padding: 9px 10px;
+      background: rgba(0, 0, 0, 0.6);
+      border-radius: var(--radius-small);
+      border: 1px solid rgba(255,255,255,0.04);
+      overflow-x: auto;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    code {
+      font-family: var(--font-mono);
+    }
+
+    .tip {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: var(--font-main);
+    }
+
+    /* RIGHT PANEL / CONTROLS */
+
+    .tv-side {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .tv-brand {
+      font-size: 14px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      text-align: right;
+    }
+
+    .tv-brand span {
+      color: var(--accent);
+    }
+
+    .tv-channel-indicator {
+      padding: 10px 12px;
+      border-radius: var(--radius-medium);
+      background: radial-gradient(circle at top, #232533, #101118);
+      border: 1px solid rgba(255,255,255,0.06);
+      box-shadow: inset 0 0 25px rgba(0,0,0,0.7);
+    }
+
+    .channel-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+
+    .channel-number {
+      font-size: 24px;
+      font-family: var(--font-mono);
+      color: var(--accent);
+      text-align: right;
+    }
+
+    .channel-name {
+      font-size: 11px;
+      color: var(--text-main);
+      margin-top: 2px;
+      text-align: right;
+    }
+
+    .tv-controls {
+      padding: 10px 12px 12px;
+      border-radius: var(--radius-medium);
+      background: radial-gradient(circle at top, #232533, #101118);
+      border: 1px solid rgba(255,255,255,0.06);
+      box-shadow: inset 0 0 25px rgba(0,0,0,0.7);
+    }
+
+    .tv-controls-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .channel-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 4px;
+    }
+
+    .channel-btn {
+      border: 0;
+      border-radius: 999px;
+      padding: 6px 0;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      background: var(--btn-bg);
+      color: var(--text-main);
+      cursor: pointer;
+      box-shadow:
+        0 1px 0 rgba(255,255,255,0.06),
+        0 0 0 1px rgba(0,0,0,0.8);
+      transition: background var(--transition-fast), color var(--transition-fast),
+        transform 0.1s ease-out, box-shadow var(--transition-fast);
+    }
+
+    .channel-btn:hover {
+      background: #171721;
+      transform: translateY(-1px);
+      box-shadow:
+        0 2px 4px rgba(0,0,0,0.7),
+        0 0 0 1px rgba(0,0,0,0.8);
+    }
+
+    .channel-btn.active {
+      background: var(--btn-active);
+      color: var(--btn-active-text);
+      box-shadow:
+        0 0 10px rgba(50,255,179,0.6),
+        0 0 0 1px #000;
+    }
+
+    .tv-footer {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: right;
+      margin-top: 4px;
+    }
+
+    .tv-footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .tv-footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* SMALL SCREEN */
+
+    @media (max-width: 600px) {
+      .tv {
+        padding: 16px;
+      }
+
+      .tv-screen-content {
+        padding: 16px;
+        min-height: 260px;
+      }
+
+      .channel-grid {
+        grid-template-columns: repeat(5, 1fr);
+      }
+    }
+.donate-wrap {
+  margin-top: 18px;
+  display: flex;
+  justify-content: center;
+}
+
+.donate-tv {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: radial-gradient(circle at top, #232533, #101118);
+  border: 1px solid rgba(255,255,255,0.18);
+  box-shadow:
+    0 4px 10px rgba(0,0,0,0.6),
+    inset 0 1px 2px rgba(255,255,255,0.06);
+  color: var(--text-main);
+  text-decoration: none;
+  font-family: var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 11px;
+  position: relative;
+  overflow: hidden;
+}
+
+.donate-tv::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg,
+    rgba(255,255,255,0.18) 0%,
+    transparent 50%,
+    rgba(0,0,0,0.4) 100%);
+  opacity: 0.18;
+  pointer-events: none;
+}
+
+.donate-tv:hover {
+  box-shadow:
+    0 6px 16px rgba(0,0,0,0.8),
+    0 0 14px rgba(50,255,179,0.55);
+  transform: translateY(-1px);
+  transition: all 0.18s ease;
+}
+
+.donate-tv:active {
+  transform: translateY(0);
+  box-shadow:
+    0 3px 10px rgba(0,0,0,0.8),
+    0 0 8px rgba(50,255,179,0.6);
+}
+
+.donate-led {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow:
+    0 0 6px var(--accent),
+    0 0 12px rgba(50,255,179,0.7);
+  animation: ledPulse 2s ease-in-out infinite;
+}
+
+.donate-label {
+  opacity: 0.7;
+}
+
+.donate-amount {
+  padding-left: 8px;
+  border-left: 1px solid rgba(255,255,255,0.18);
+  font-size: 10px;
+  opacity: 0.9;
+}
+
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page-title">
+      JS Шпаргалка в формате <strong>TV‑каналов</strong>
+    </div>
+
+    <div class="tv-wrapper">
+      <div class="tv">
+        <!-- SCREEN -->
+        <div class="tv-screen-shell">
+          <div class="tv-screen-inner">
+            <div class="tv-screen-glow"></div>
+            <div class="tv-screen-content" id="screen">
+              <!-- Канал 1 -->
+              <div class="channel active" data-channel="1" data-name="Где писать код?">
+                <h2 class="channel-title">1. Где писать код?</h2>
+                <p class="channel-sub">Консоль браузера и тег <code>&lt;script&gt;</code> — стартовая точка.</p>
+<pre><code>&lt;!-- В консоли браузера (F12) или в теге &lt;script&gt; --&gt;
+&lt;script&gt;
+  console.log('Привет, мир!');
+&lt;/script&gt;
+</code></pre>
+                <p class="tip">Открой DevTools (F12) → вкладка Console и пробуй команды прямо там.</p>
+              </div>
+
+              <!-- Канал 2 -->
+              <div class="channel" data-channel="2" data-name="Переменные">
+                <h2 class="channel-title">2. Переменные (контейнеры для данных)</h2>
+                <p class="channel-sub">Три способа объявить переменную, но в 2026 году хватит <code>let</code> и <code>const</code>.</p>
+<pre><code>// Три способа создать переменную
+let name = 'Анна';        // Можно менять позже
+const PI = 3.14;          // Нельзя изменить (константа)
+var old = 'Так лучше не делать'; // Устаревший способ
+</code></pre>
+                <p class="tip">По умолчанию используй <code>const</code>, а <code>let</code> — когда значение реально меняется.</p>
+              </div>
+
+              <!-- Канал 3 -->
+              <div class="channel" data-channel="3" data-name="Типы данных">
+                <h2 class="channel-title">3. Типы данных (самые частые)</h2>
+                <p class="channel-sub">JS — динамически типизированный, но базовые типы знать всё равно полезно.</p>
+<pre><code>let number = 42;          // Число
+let string = "Текст";     // Строка (в кавычках)
+let isTrue = true;        // Булево (true/false)
+let nothing = null;       // Пусто (намеренно)
+let notDefined;           // undefined (не присвоено значение)
+</code></pre>
+                <p class="tip">Проверить тип поможет <code>typeof value</code> в консоли.</p>
+              </div>
+
+              <!-- Канал 4 -->
+              <div class="channel" data-channel="4" data-name="Операторы">
+                <h2 class="channel-title">4. Операторы</h2>
+                <p class="channel-sub">Математика и логика — два главных инструмента в условиях и вычислениях.</p>
+<pre><code>// Математика
+5 + 2  // 7
+5 - 2  // 3
+5 * 2  // 10
+5 / 2  // 2.5
+
+// Логика (сравнение)
+5 === 5   // true (строго равно, проверяет и значение и тип)
+5 !== 5   // false (не равно)
+5 > 3     // true
+5 <= 5    // true
+
+// Для новичков: всегда используй === и !==, а не == и !=
+</code></pre>
+                <p class="tip">Запомни правило: <code>===</code> и <code>!==</code> почти всегда лучше, чем <code>==</code> и <code>!=</code>.</p>
+              </div>
+
+              <!-- Канал 5 -->
+              <div class="channel" data-channel="5" data-name="Условия">
+                <h2 class="channel-title">5. Условные конструкции (если — то)</h2>
+                <p class="channel-sub">Ветвление позволяет выполнять разный код при разных условиях.</p>
+<pre><code>let age = 20;
+
+if (age >= 18) {
+  console.log('Проходи');
+} else if (age >= 16) {
+  console.log('Почти');
+} else {
+  console.log('Рано');
+}
+</code></pre>
+                <p class="tip">Внутри блока можно вызывать функции, менять переменные и делать что угодно.</p>
+              </div>
+
+              <!-- Канал 6 -->
+              <div class="channel" data-channel="6" data-name="Функции">
+                <h2 class="channel-title">6. Функции (кирпичики программы)</h2>
+                <p class="channel-sub">Функция — именованный фрагмент кода, который можно переиспользовать.</p>
+<pre><code>// 1. Объявление функции
+function greet(name) {
+  return 'Привет, ' + name;
+}
+
+// 2. Вызов функции
+let message = greet('Петя'); // message = 'Привет, Петя'
+
+// Стрелочная функция (современный стиль)
+const sum = (a, b) =&gt; a + b;
+let result = sum(5, 3); // 8
+</code></pre>
+                <p class="tip">Если функция делает слишком много, разбей её на несколько маленьких.</p>
+              </div>
+
+              <!-- Канал 7 -->
+              <div class="channel" data-channel="7" data-name="Массивы">
+                <h2 class="channel-title">7. Массивы (списки)</h2>
+                <p class="channel-sub">Массив хранит упорядоченную коллекцию значений.</p>
+<pre><code>let fruits = ['Яблоко', 'Банан', 'Апельсин'];
+
+console.log(fruits[0]);      // 'Яблоко' (нумерация с нуля)
+console.log(fruits.length);  // 3 (длина массива)
+
+fruits.push('Груша');        // Добавить в конец
+</code></pre>
+                <p class="tip">Для перебора массивов часто используют <code>for...of</code>, <code>forEach</code>, <code>map</code>, <code>filter</code>.</p>
+              </div>
+
+              <!-- Канал 8 -->
+              <div class="channel" data-channel="8" data-name="Циклы">
+                <h2 class="channel-title">8. Циклы (повтор действий)</h2>
+                <p class="channel-sub">Цикл позволяет пройтись по массиву или повторить одно действие много раз.</p>
+<pre><code>// Цикл для перебора массива
+let colors = ['red', 'green', 'blue'];
+
+for (let i = 0; i &lt; colors.length; i++) {
+  console.log(colors[i]);
+}
+
+// Современный способ (для массивов)
+for (let color of colors) {
+  console.log(color);
+}
+</code></pre>
+                <p class="tip">Следи, чтобы условие цикла когда-нибудь стало ложным — иначе получится бесконечный цикл.</p>
+              </div>
+
+              <!-- Канал 9 -->
+              <div class="channel" data-channel="9" data-name="Объекты">
+                <h2 class="channel-title">9. Объекты (сущности со свойствами)</h2>
+                <p class="channel-sub">Объект описывает сущность: у неё есть свойства и значения.</p>
+<pre><code>let user = {
+  name: 'Иван',
+  age: 25,
+  isAdmin: false
+};
+
+console.log(user.name);      // 'Иван' (через точку)
+console.log(user['age']);    // 25 (другой способ)
+user.city = 'Москва';        // Добавить новое поле
+</code></pre>
+                <p class="tip">Почти всё в JS так или иначе работает с объектами — это ключевая структура данных.</p>
+              </div>
+
+              <!-- Канал 10 -->
+              <div class="channel" data-channel="10" data-name="DOM и мелочи">
+                <h2 class="channel-title">10. Работа с DOM и полезные мелочи</h2>
+                <p class="channel-sub">DOM — это JS‑представление HTML‑страницы, с которым можно работать из кода.</p>
+<pre><code>// Найти элемент на странице
+let title = document.getElementById('header');
+let buttons = document.querySelectorAll('.btn'); // CSS селекторы
+
+// Изменить элемент
+title.textContent = 'Новый текст';  // Поменять текст
+title.style.color = 'red';          // Поменять стиль
+
+// Создать новый элемент
+let div = document.createElement('div');
+div.textContent = 'Я новый блок';
+document.body.appendChild(div);     // Вставить в конец страницы
+
+// Реакция на клик
+button.addEventListener('click', () =&gt; {
+  alert('Клик!');
+});
+</code></pre>
+<pre><code>// Шаблонные строки (вставляем переменные в текст)
+let name = 'Мир';
+console.log(`Привет, ${name}!`); // Привет, Мир! (обратные кавычки)
+
+// Тернарный оператор (короткое if)
+let access = (age &gt;= 18) ? 'Да' : 'Нет';
+
+// Очистка консоли
+console.clear();
+</code></pre>
+                <p class="tip"><strong>Главный совет:</strong> открывай консоль (F12) и пробуй каждую строчку руками. Ошибки — это нормально.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SIDE / CONTROLS -->
+        <div class="tv-side">
+          <div>
+            <div class="tv-brand">
+              JS <span>RETRO</span> LAB
+            </div>
+          </div>
+
+          <div class="tv-channel-indicator">
+            <div class="channel-label">
+              <span>Channel</span>
+              <span>JS Basics</span>
+            </div>
+            <div class="channel-number" id="channelNumber">01</div>
+            <div class="channel-name" id="channelName">Где писать код?</div>
+          </div>
+
+          <div class="tv-controls">
+            <div class="tv-controls-title">Каналы</div>
+            <div class="channel-grid">
+              <button class="channel-btn active" data-channel="1">1</button>
+              <button class="channel-btn" data-channel="2">2</button>
+              <button class="channel-btn" data-channel="3">3</button>
+              <button class="channel-btn" data-channel="4">4</button>
+              <button class="channel-btn" data-channel="5">5</button>
+              <button class="channel-btn" data-channel="6">6</button>
+              <button class="channel-btn" data-channel="7">7</button>
+              <button class="channel-btn" data-channel="8">8</button>
+              <button class="channel-btn" data-channel="9">9</button>
+              <button class="channel-btn" data-channel="10">10</button>
+            </div>
+          </div>
+
+          <div class="tv-footer">
+            Шпаргалка по JavaScript для начинающих
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const buttons = document.querySelectorAll('.channel-btn');
+    const channels = document.querySelectorAll('.channel');
+    const channelNumberEl = document.getElementById('channelNumber');
+    const channelNameEl = document.getElementById('channelName');
+    const screen = document.getElementById('screen');
+
+    function setChannel(channelId) {
+      channels.forEach(ch => {
+        ch.classList.toggle('active', ch.dataset.channel === channelId);
+      });
+
+      buttons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.channel === channelId);
+      });
+
+      const active = document.querySelector('.channel.active');
+      if (active) {
+        const num = active.dataset.channel.padStart(2, '0');
+        const name = active.dataset.name || '';
+        channelNumberEl.textContent = num;
+        channelNameEl.textContent = name;
+      }
+
+      // Имитируем лёгкий "рывок" при смене канала
+      screen.style.transform = 'translateY(1px)';
+      screen.style.transition = 'transform 80ms ease-out';
+      setTimeout(() => {
+        screen.style.transform = 'translateY(0)';
+      }, 80);
+    }
+
+    buttons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const ch = btn.dataset.channel;
+        setChannel(ch);
+      });
+    });
+  </script>
+<div class="donate-wrap">
+  <a class="donate-tv" href="https://yoomoney.ru/to/4100117099095471" target="_blank" rel="noopener">
+    <span class="donate-led"></span>
+    <span class="donate-label">поддержать проект</span>
+    <span class="donate-amount">донат через YooMoney</span>
+  </a>
+</div>
+
+</body>
+</html>
